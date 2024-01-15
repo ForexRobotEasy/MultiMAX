@@ -1,0 +1,120 @@
+
+// Developer: Forex Robot Easy Team
+// Website: forexroboteasy.com
+
+// Import necessary libraries
+#include <Trade\Trade.mqh>
+
+// Define constants
+#define MAX_TRADES 10
+#define MAX_EXPOSURE 10000
+
+// Define trade structure
+struct TradeInfo
+{
+   double entryPrice;
+   double stopLoss;
+   double takeProfit;
+};
+
+// Define global variables
+TradeInfo trades[MAX_TRADES];
+int tradeCount = 0;
+
+// Function to open a new trade
+void OpenTrade(string symbol, double lotSize, double entryPrice, double stopLoss, double takeProfit)
+{
+   // Check if maximum number of trades has been reached
+   if(tradeCount >= MAX_TRADES)
+   {
+      Print('Cannot open new trade. Maximum number of trades reached.');
+      return;
+   }
+   
+   // Check if exposure limit will be exceeded
+   double exposure = 0;
+   for(int i = 0; i < tradeCount; i++)
+   {
+      exposure += trades[i].entryPrice * lotSize;
+   }
+   exposure += entryPrice * lotSize;
+   if(exposure > MAX_EXPOSURE)
+   {
+      Print('Cannot open new trade. Exposure limit will be exceeded.');
+      return;
+   }
+   
+   // Store trade information
+   trades[tradeCount].entryPrice = entryPrice;
+   trades[tradeCount].stopLoss = stopLoss;
+   trades[tradeCount].takeProfit = takeProfit;
+   tradeCount++;
+   
+   // Open trade
+   Trade.Open(symbol, lotSize, entryPrice, stopLoss, takeProfit);
+   Print('Trade opened on', symbol, 'at price', entryPrice);
+}
+
+// Function to close a trade
+void CloseTrade(string symbol)
+{
+   // Search for the trade based on symbol
+   for(int i = 0; i < tradeCount; i++)
+   {
+      if(Trade.Symbol() == symbol)
+      {
+         Trade.Close(Trade.PositionTicket());
+         Print('Trade closed on', symbol, 'at price', MarketInfo(symbol, MODE_BID));
+         // Shift the remaining trades in the array
+         for(int j = i; j < tradeCount - 1; j++)
+         {
+            trades[j] = trades[j+1];
+         }
+         tradeCount--;
+         break;
+      }
+   }
+}
+
+// Function to adjust trade settings
+void AdjustTradeSettings(string symbol, double stopLoss, double takeProfit)
+{
+   // Search for the trade based on symbol
+   for(int i = 0; i < tradeCount; i++)
+   {
+      if(Trade.Symbol() == symbol)
+      {
+         // Update trade information
+         trades[i].stopLoss = stopLoss;
+         trades[i].takeProfit = takeProfit;
+         // Modify trade order
+         Trade.Modify(Trade.PositionTicket(), Trade.PositionOpenPrice(), stopLoss, takeProfit);
+         Print('Trade settings adjusted for', symbol);
+         break;
+      }
+   }
+}
+
+// Entry point of the program
+void OnStart()
+{
+   // Open trades
+   OpenTrade('EURUSD', 0.1, 1.2, 1.0, 1.5);
+   OpenTrade('GBPUSD', 0.2, 1.8, 1.4, 2.0);
+   OpenTrade('USDJPY', 0.3, 100.0, 99.5, 100.5);
+   
+   // Close trade
+   CloseTrade('EURUSD');
+   
+   // Adjust trade settings
+   AdjustTradeSettings('GBPUSD', 1.6, 2.2);
+   
+   // Close remaining trades
+   for(int i = 0; i < tradeCount; i++)
+   {
+      CloseTrade(Trade.Symbol());
+   }
+   
+   // Logical conclusion
+   Print('All trades closed successfully.');
+}
